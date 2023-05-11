@@ -86,6 +86,19 @@ if __name__ == '__main__':
 
     ''' Perform ancestry analysis '''
     analyzer = AncestryAnalyzer(phylo_tree, prob_table, msa)
+
+    #     mame sekvencie na listoch, budeme vypocitavat sekvencie na vnutornych uzloch
+    #       teda si najskor pre cely strom vytiahneme uzol, na zaklade tabulky vyextrahujem
+    #        najpravdepodobnejsi aminokyselinu a skonkatenujem na danu poziciu
+
+    # ked budem mat poskladany cely strom, budem sa pre kazdy uzol pozerat na jeho potomkov
+    # ulozim si skore: space_replacement_weight = 0 -> budem prechadzat potomkami a vzidalenostami k nim
+    # ak bude u potomka na danom mieste medzera -> space_replacement_weight + vzdialenost k nemu
+    # ak u potomka na danom meiste medzera nebude -> -vzdialenost k nemu
+
+    # ak bude space_replacement_weight > 0 -> vlozim medzeru, inak necham tak
+
+    # vytvorim subor > node_id, na dalsi riadok hodim sekvenciu, pripadne pridam newline po xtom symbole
     # set_most_probable
     # append_spaces
     # print_outputs
