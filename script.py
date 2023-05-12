@@ -1,9 +1,9 @@
 
+import os
 import argparse
 import pandas as pd
-from typing import List
 from Bio import Phylo
-import os
+from typing import List
 
 
 def parse_args() -> argparse.Namespace:
@@ -21,7 +21,6 @@ def parse_args() -> argparse.Namespace:
 class PhylogeneticTree:
     def __init__(self, input_path: str) -> None:
         self.tree = next(Phylo.parse(input_path, "newick"))
-        self.obj_tree = Phylo.parse(input_path, "newick")
 
     def display_tree(self) -> None:
         Phylo.draw_ascii(self.tree)
@@ -58,7 +57,6 @@ class AncestryAnalyzer:
                  alignments: List[MultSeqAlignment]) -> None:
         # iterate through the tree
         self.phylo_tree = phylo_tree.tree
-        self.iter_phylo_tree = phylo_tree.obj_tree
         self.leaf_nodes = self.phylo_tree.get_terminals()
 
         self.probabilities = probabilities.data
@@ -77,15 +75,14 @@ class AncestryAnalyzer:
             if node_id in self.nodes_values:
                 continue
             else:
-                alignment = self.obtain_ml_sequence(node_id)
-                self.nodes_values[node_id] = alignment
+                self.nodes_values[node_id] = self.obtain_ml_sequence(node_id)
 
     def obtain_ml_sequence(self, node_id: str):
         result = ''
-        extracted_values = self.probabilities.loc[self.probabilities['node'] == node_id]
-        extracted_values = extracted_values.drop(['node'], axis=1)
-        extracted_values = extracted_values.sort_values(by=['position'])
-        extracted_values = extracted_values.drop(['position'], axis=1)
+        extracted_values = self.probabilities.loc[self.probabilities['node'] == node_id] \
+            .drop(['node'], axis=1) \
+            .sort_values(by=['position']) \
+            .drop(['position'], axis=1)
 
         for index, row in extracted_values.iterrows():
             row = pd.to_numeric(row, errors='coerce')
@@ -95,6 +92,8 @@ class AncestryAnalyzer:
         return result
 
     def add_spaces_to_sequences(self):
+        # Initialize mask for calculating weights which will determine if
+        # corresponding aminoacid should be replaced by space
         weighted_space_mask = {node_id: [0] * 96 for node_id in self.nodes_ids}
 
         terminals = self.phylo_tree.get_terminals()
@@ -145,7 +144,7 @@ if __name__ == '__main__':
     prob_table = ProbabilityTable(args.ancestrals_path)
     prob_table.replace_missing_probabilities()
 
-    ''' Process the MSA from input fasta file by associating alignment with its name'''
+    ''' Process the MSAs from input fasta file by associating alignment with its name'''
     msa = []
     msa_file = open('data/msa.fasta', 'r')
     lines = msa_file.readlines()
@@ -158,4 +157,6 @@ if __name__ == '__main__':
     analyzer = AncestryAnalyzer(phylo_tree, prob_table, msa)
     analyzer.get_sequences_without_spaces()
     analyzer.add_spaces_to_sequences()
+
+    ''' Display outputs '''
     analyzer.print_outputs()
