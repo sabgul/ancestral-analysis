@@ -3,6 +3,7 @@ import argparse
 import pandas as pd
 from typing import List
 from Bio import Phylo
+import os
 
 
 def parse_args() -> argparse.Namespace:
@@ -20,7 +21,7 @@ def parse_args() -> argparse.Namespace:
 class PhylogeneticTree:
     def __init__(self, input_path: str) -> None:
         self.tree = next(Phylo.parse(input_path, "newick"))
-        # TODO read phylo tree into the structure
+        self.obj_tree = Phylo.parse(input_path, "newick")
 
     def display_tree(self) -> None:
         Phylo.draw_ascii(self.tree)
@@ -56,17 +57,22 @@ class AncestryAnalyzer:
                  probabilities: ProbabilityTable,
                  alignments: List[MultSeqAlignment]) -> None:
         # iterate through the tree
-        self.phylo_tree = phylo_tree
-        self.leaf_nodes = self.phylo_tree.tree.get_terminals()
+        self.phylo_tree = phylo_tree.tree
+        self.iter_phylo_tree = phylo_tree.obj_tree
+        self.leaf_nodes = self.phylo_tree.get_terminals()
 
         self.probabilities = probabilities.data
         self.alignments = alignments
 
         self.nodes_values = dict()
+        self.nodes_ids = []
+        for node in self.phylo_tree.get_nonterminals():
+            self.nodes_ids.append(node.confidence)
+        for node in self.phylo_tree.get_terminals():
+            self.nodes_ids.append(node.name)
 
     def get_sequences_without_spaces(self):
-        for node in self.phylo_tree.tree.find_clades(terminal=False):
-            # TODO check if name is at confidence or name attribute
+        for node in self.phylo_tree.find_clades(terminal=False):
             node_id = node.confidence
             if node_id in self.nodes_values:
                 continue
@@ -94,7 +100,6 @@ class AncestryAnalyzer:
 
     def obtain_ml_sequence(self, node_id: str):
         result = ''
-        # df.loc[df['column_name'] == some_value]
         extracted_values = self.probabilities.loc[self.probabilities['node'] == node_id]
         extracted_values = extracted_values.drop(['node'], axis=1)
         extracted_values = extracted_values.sort_values(by=['position'])
@@ -105,20 +110,56 @@ class AncestryAnalyzer:
             max_column = row.idxmax()
             result = result + max_column
 
-        # TODO calculate alignment, based on the probabilities df
-        # extract rows whose first column == node_id
-        # df[df['Column1'].isin(['B', 'D'])]
-        # related_rows = self.probabilities[self.probabilities['node'].isin[node_id]]
-        # related_rows = self.probabilities['nodes'].isin[node_id]
-        # vyfiltrovat hodnoty kt maju spravnu hodnotu nodes, vymrdat tento stlpec prec
-        # sort by 'position', vymrdat tento stlpec prec
-        # potom pojdeme riadok po riadku, zistime na ktorom key je najvyssia hodnota,
-        #   tento key appendujeme do result
         return result
 
     def add_spaces_to_sequences(self):
-        # prechod stromom od deti vyssie
-        pass
+        weighted_space_mask = {node_id: [0] * 96 for node_id in self.nodes_ids}
+
+        terminals = self.phylo_tree.get_terminals()
+
+        # Parse the phylogenetic tree from a file
+        elements = self.phylo_tree.get_nonterminals(order='level')
+        elements.reverse()
+
+        for node in elements:
+            child_nodes = node.clades
+            alignment_id = node.confidence
+            curr_alignment = self.nodes_values[alignment_id]
+            for id_, symb in enumerate(curr_alignment):
+                weight = 0
+                for child in child_nodes:
+                    if child in terminals:
+                        # TODO get alignment from alignments, object whose name matches child.name
+                        for instance in self.alignments:
+                            if instance.name == child.name:
+                                child_align = instance.alignment
+                        weight += weighted_space_mask[child.name][id_]
+                    else:
+                        child_align = self.nodes_values[child.confidence]
+                        weight += weighted_space_mask[child.confidence][id_]
+
+                    if child_align[id_] == '-':
+                        weight = weight + child.branch_length
+                        # pass
+                    else:
+                        weight = weight - child.branch_length
+                        # pass
+                weighted_space_mask[node.confidence][id_] += weight
+                if weight > 0:
+                    curr_alignment = curr_alignment[:id_] + '-' + curr_alignment[id_ + 1:]
+                    # curr_alignment[id_] = '-'
+            self.nodes_values[alignment_id] = curr_alignment
+
+    def print_outputs(self):
+        # output nodes_values into files in fasta format
+        # nodes, values
+        os.makedirs("out", exist_ok=True)
+        for id_, value in self.nodes_values.items():
+            filename = os.path.join("out", "node_" + str(id_) + ".fas")
+            # filename = "node_" + id_ + ".fas"
+            value = '>' + str(id_) + '\n' + value[:60] + '\n' + value[60:]
+            with open(filename, "w") as file:
+                file.write(value)
 
 
 if __name__ == '__main__':
@@ -141,6 +182,8 @@ if __name__ == '__main__':
     ''' Perform ancestry analysis '''
     analyzer = AncestryAnalyzer(phylo_tree, prob_table, msa)
     analyzer.get_sequences_without_spaces()
+    analyzer.add_spaces_to_sequences()
+    analyzer.print_outputs()
     #     mame sekvencie na listoch, budeme vypocitavat sekvencie na vnutornych uzloch
     #       teda si najskor pre cely strom vytiahneme uzol, na zaklade tabulky vyextrahujem
     #        najpravdepodobnejsi aminokyselinu a skonkatenujem na danu poziciu
@@ -163,13 +206,3 @@ if __name__ == '__main__':
     #   ak ano, das tam medzeru, ak nie, nechas
 
     # vypises do osobitnych suborov
-
-
-    # file1 = open('data/msa.fasta', 'r')
-    # count = 0
-    # Lines = file1.readlines()
-    #
-    # for line in Lines:
-    #     # if(count % 3 == 1):
-    #     count += 1
-    #     print("Line: ", line, count)
