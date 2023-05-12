@@ -1,18 +1,8 @@
-# - nacitat viacnasobne zarovnanie z msa.fasta
-# - nacitat strukturu fylogenetickeho stromu (Phylo lib z BioPython)
-# - nacitat data z ancestrals.csv
-# - na zaklade posteriornych pravdepodobnosti v ancestrals odhadnut najviac pravdepodobne
-#   ancestralne sekvencie, vratane doplnenia ancestralnych medzier
 
-
-# objekt na subor msa {array objektov na zarovnanie, metoda na parsovanie suboru}
-# objekt na zaorvnanie -> name, sequence
-
-# objekt na strom (obsahuje vsetky nody, root)
-# objekt na node (meno, potomkovia, vzdialenost ku kazdemu potomkovi)
 import argparse
 import pandas as pd
 from typing import List
+from Bio import Phylo
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,19 +19,20 @@ def parse_args() -> argparse.Namespace:
 
 class PhylogeneticTree:
     def __init__(self, input_path: str) -> None:
-        self.input_path = input_path
-        # self.tree_data =
+        self.tree = next(Phylo.parse(input_path, "newick"))
         # TODO read phylo tree into the structure
-        pass
+
+    def display_tree(self) -> None:
+        Phylo.draw_ascii(self.tree)
 
 
 class ProbabilityTable:
     def __init__(self, input_path: str) -> None:
         self.input_path = input_path
-        self.probabilities = pd.read_csv(self.input_path)
+        self.data = pd.read_csv(self.input_path)
 
     def replace_missing_probabilities(self) -> None:
-        self.probabilities = self.probabilities.replace('-', 0.0)
+        self.data = self.data.replace('-', 0)
 
 
 class MultSeqAlignment:
@@ -50,7 +41,7 @@ class MultSeqAlignment:
         self.alignment = ''
         pass
 
-    def get_alignment(self, line_one: str, line_two: str):
+    def get_alignment(self, line_one: str, line_two: str) -> None:
         # Strip both leading > and newline from the name of alignment
         self.name = self.name.rstrip('\n')
         self.name = self.name[1:]
@@ -64,6 +55,69 @@ class AncestryAnalyzer:
                  phylo_tree: PhylogeneticTree,
                  probabilities: ProbabilityTable,
                  alignments: List[MultSeqAlignment]) -> None:
+        # iterate through the tree
+        self.phylo_tree = phylo_tree
+        self.leaf_nodes = self.phylo_tree.tree.get_terminals()
+
+        self.probabilities = probabilities.data
+        self.alignments = alignments
+
+        self.nodes_values = dict()
+
+    def get_sequences_without_spaces(self):
+        for node in self.phylo_tree.tree.find_clades(terminal=False):
+            # TODO check if name is at confidence or name attribute
+            node_id = node.confidence
+            if node_id in self.nodes_values:
+                continue
+            else:
+                alignment = self.obtain_ml_sequence(node_id)
+                self.nodes_values[node_id] = alignment
+        # for leaf_node in self.leaf_nodes:
+        #     # current_node = leaf_node
+        #     current_node = leaf_node.ancestor
+        #     ancestors = current_node.ancestors()
+        #     for ancestor in ancestors:
+        #
+        #     while current_node is not None:
+        #         # Perform operations on the current node
+        #         # skip duplicates
+        #         node_id = current_node.confidence
+        #         if node_id in self.nodes_values:
+        #             continue
+        #         else:
+        #             alignment = self.obtain_ml_sequence(node_id)
+        #             self.nodes_values[node_id] = alignment
+        #         print(current_node)
+        #
+        #         current_node = current_node.parent
+
+    def obtain_ml_sequence(self, node_id: str):
+        result = ''
+        # df.loc[df['column_name'] == some_value]
+        extracted_values = self.probabilities.loc[self.probabilities['node'] == node_id]
+        extracted_values = extracted_values.drop(['node'], axis=1)
+        extracted_values = extracted_values.sort_values(by=['position'])
+        extracted_values = extracted_values.drop(['position'], axis=1)
+
+        for index, row in extracted_values.iterrows():
+            row = pd.to_numeric(row, errors='coerce')
+            max_column = row.idxmax()
+            result = result + max_column
+
+        # TODO calculate alignment, based on the probabilities df
+        # extract rows whose first column == node_id
+        # df[df['Column1'].isin(['B', 'D'])]
+        # related_rows = self.probabilities[self.probabilities['node'].isin[node_id]]
+        # related_rows = self.probabilities['nodes'].isin[node_id]
+        # vyfiltrovat hodnoty kt maju spravnu hodnotu nodes, vymrdat tento stlpec prec
+        # sort by 'position', vymrdat tento stlpec prec
+        # potom pojdeme riadok po riadku, zistime na ktorom key je najvyssia hodnota,
+        #   tento key appendujeme do result
+        return result
+
+    def add_spaces_to_sequences(self):
+        # prechod stromom od deti vyssie
         pass
 
 
@@ -86,7 +140,7 @@ if __name__ == '__main__':
 
     ''' Perform ancestry analysis '''
     analyzer = AncestryAnalyzer(phylo_tree, prob_table, msa)
-
+    analyzer.get_sequences_without_spaces()
     #     mame sekvencie na listoch, budeme vypocitavat sekvencie na vnutornych uzloch
     #       teda si najskor pre cely strom vytiahneme uzol, na zaklade tabulky vyextrahujem
     #        najpravdepodobnejsi aminokyselinu a skonkatenujem na danu poziciu
