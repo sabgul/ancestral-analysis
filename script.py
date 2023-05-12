@@ -79,24 +79,6 @@ class AncestryAnalyzer:
             else:
                 alignment = self.obtain_ml_sequence(node_id)
                 self.nodes_values[node_id] = alignment
-        # for leaf_node in self.leaf_nodes:
-        #     # current_node = leaf_node
-        #     current_node = leaf_node.ancestor
-        #     ancestors = current_node.ancestors()
-        #     for ancestor in ancestors:
-        #
-        #     while current_node is not None:
-        #         # Perform operations on the current node
-        #         # skip duplicates
-        #         node_id = current_node.confidence
-        #         if node_id in self.nodes_values:
-        #             continue
-        #         else:
-        #             alignment = self.obtain_ml_sequence(node_id)
-        #             self.nodes_values[node_id] = alignment
-        #         print(current_node)
-        #
-        #         current_node = current_node.parent
 
     def obtain_ml_sequence(self, node_id: str):
         result = ''
@@ -129,7 +111,6 @@ class AncestryAnalyzer:
                 weight = 0
                 for child in child_nodes:
                     if child in terminals:
-                        # TODO get alignment from alignments, object whose name matches child.name
                         for instance in self.alignments:
                             if instance.name == child.name:
                                 child_align = instance.alignment
@@ -140,23 +121,17 @@ class AncestryAnalyzer:
 
                     if child_align[id_] == '-':
                         weight = weight + child.branch_length
-                        # pass
                     else:
                         weight = weight - child.branch_length
-                        # pass
                 weighted_space_mask[node.confidence][id_] += weight
                 if weight > 0:
                     curr_alignment = curr_alignment[:id_] + '-' + curr_alignment[id_ + 1:]
-                    # curr_alignment[id_] = '-'
             self.nodes_values[alignment_id] = curr_alignment
 
     def print_outputs(self):
-        # output nodes_values into files in fasta format
-        # nodes, values
         os.makedirs("out", exist_ok=True)
         for id_, value in self.nodes_values.items():
             filename = os.path.join("out", "node_" + str(id_) + ".fas")
-            # filename = "node_" + id_ + ".fas"
             value = '>' + str(id_) + '\n' + value[:60] + '\n' + value[60:]
             with open(filename, "w") as file:
                 file.write(value)
@@ -184,25 +159,3 @@ if __name__ == '__main__':
     analyzer.get_sequences_without_spaces()
     analyzer.add_spaces_to_sequences()
     analyzer.print_outputs()
-    #     mame sekvencie na listoch, budeme vypocitavat sekvencie na vnutornych uzloch
-    #       teda si najskor pre cely strom vytiahneme uzol, na zaklade tabulky vyextrahujem
-    #        najpravdepodobnejsi aminokyselinu a skonkatenujem na danu poziciu
-
-    # ked budem mat poskladany cely strom, budem sa pre kazdy uzol pozerat na jeho potomkov
-    # ulozim si skore: space_replacement_weight = 0 -> budem prechadzat potomkami a vzidalenostami k nim
-    # ak bude u potomka na danom mieste medzera -> space_replacement_weight + vzdialenost k nemu
-    # ak u potomka na danom meiste medzera nebude -> -vzdialenost k nemu
-
-    # ak bude space_replacement_weight > 0 -> vlozim medzeru, inak necham tak
-
-    # vytvorim subor > node_id, na dalsi riadok hodim sekvenciu, pripadne pridam newline po xtom symbole
-    # set_most_probable
-    # append_spaces
-    # print_outputs
-
-    # x najskor si v ancestrals nahradis - za 0
-    # najskor vyberies najpravdepodobnejsiu aminokyselinu, vytvoris sekvencie bez medzier
-    # na zaklade potomkov sa pre kazdy stlpec pozries ci u potomkov prevazuju v danom stlpci medzery,
-    #   ak ano, das tam medzeru, ak nie, nechas
-
-    # vypises do osobitnych suborov
