@@ -1,4 +1,9 @@
+"""
+    Project for BIF/2023L course: Ancestry analysis
 
+    :author :Sabina Gulcikova
+            :(xgulci00@stud.fit.vutbr.cz)
+"""
 import os
 import argparse
 import pandas as pd
@@ -115,6 +120,9 @@ class AncestryAnalyzer:
                                 child_align = instance.alignment
                         weight += weighted_space_mask[child.name][id_]
                     else:
+                        # Add the child's weight of necessity do add sequence to
+                        # the weight of the current node, so that we do not have to traverse
+                        # the child nodes again in future iterations
                         child_align = self.nodes_values[child.confidence]
                         weight += weighted_space_mask[child.confidence][id_]
 
